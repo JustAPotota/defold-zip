@@ -13,6 +13,20 @@ struct ZipFile
     bool open;
 };
 
+static dmZip::HZip* ToZipFile(lua_State* L, int index)
+{
+    ZipFile* zipfile = (ZipFile*)lua_touserdata(L, index);
+    if (zipfile->open)
+    {
+        return zipfile->zip;
+    }
+    else
+    {
+        luaL_error(L, "attempt to use a closed zip file");
+        return NULL;
+    }
+}
+
 static int ZipOpen(lua_State* L)
 {
     DM_LUA_STACK_CHECK(L, 1);
@@ -31,6 +45,66 @@ static int ZipOpen(lua_State* L)
 
     luaL_getmetatable(L, "zipfile");
     lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+static int ZipFileOpenEntry(lua_State* L)
+{
+    DM_LUA_STACK_CHECK(L, 0);
+
+    dmZip::HZip* zip = ToZipFile(L, 1);
+
+    dmZip::Result result;
+    if (lua_isnumber(L, 2)) {
+        uint32_t entry_index = lua_tointeger(L, 2);
+        dmZip::Result result = dmZip::OpenEntry(*zip, entry_index);
+        if (result != dmZip::RESULT_OK)
+            return luaL_error(L, "no entry at index %d", entry_index);
+    } else {
+        const char* entry_name = luaL_checkstring(L, 2);
+        dmZip::Result result = dmZip::OpenEntry(*zip, entry_name);
+        if (result != dmZip::RESULT_OK)
+            return luaL_error(L, "no entry with name '%s'", entry_name);
+    }
+
+    return 0;
+}
+
+static int ZipFileCloseEntry(lua_State* L)
+{
+    DM_LUA_STACK_CHECK(L, 0);
+
+    dmZip::HZip* zip = ToZipFile(L, 1);
+    dmZip::CloseEntry(*zip);
+
+    return 0;
+}
+
+static int ZipFileGetEntryName(lua_State* L)
+{
+    DM_LUA_STACK_CHECK(L, 1);
+
+    dmZip::HZip* zip = ToZipFile(L, 1);
+    lua_pushstring(L, dmZip::GetEntryName(*zip));
+
+    return 1;
+}
+
+static int ZipFileReadEntry(lua_State* L)
+{
+    DM_LUA_STACK_CHECK(L, 1);
+
+    dmZip::HZip* zip = ToZipFile(L, 1);
+
+    uint32_t entry_size;
+    dmZip::GetEntrySize(*zip, &entry_size);
+
+    char* buffer = (char*)malloc(entry_size);
+    dmZip::GetEntryData(*zip, buffer, entry_size);
+
+    lua_pushlstring(L, buffer, entry_size);
+    free(buffer);
 
     return 1;
 }
@@ -54,8 +128,8 @@ static int ZipFileLength(lua_State* L)
 {
     DM_LUA_STACK_CHECK(L, 1);
 
-    ZipFile* zipfile = (ZipFile*)lua_touserdata(L, 1);
-    uint32_t entry_count = dmZip::GetNumEntries(*zipfile->zip);
+    dmZip::HZip* zip = ToZipFile(L, 1);
+    uint32_t entry_count = dmZip::GetNumEntries(*zip);
 
     lua_pushnumber(L, entry_count);
 
@@ -74,11 +148,15 @@ static const luaL_reg ZIPFILE_META[] =
     {"__len", ZipFileLength},
     {"__gc", ZipFileClose},
     {"close", ZipFileClose},
+    {"open_entry", ZipFileOpenEntry},
+    {"close_entry", ZipFileCloseEntry},
+    {"get_entry_name", ZipFileGetEntryName},
+    {"read_entry", ZipFileReadEntry},
     {0, 0}
 };
 
 // https://github.com/lua/lua/blob/6baee9ef9d5657ab582c8a4b9f885ec58ed502d0/lauxlib.c#L928
-void luaL53_setfuncs(lua_State *L, const luaL_Reg *l, int nup) {
+static void luaL53_setfuncs(lua_State *L, const luaL_Reg *l, int nup) {
     luaL_checkstack(L, nup, "too many upvalues");
     for (; l->name != NULL; l++) {  /* fill the table with given functions */
         if (l->func == NULL)  /* place holder? */
