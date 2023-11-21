@@ -1,12 +1,19 @@
 function init(self)
-	local zip_file = zip.open("../test.zip")
-	for i = 0,#zip_file-1 do
+	local zip_file = zip.open("test.zip")
+
+	local entry_count = #zip_file
+	for i = 0, entry_count-1 do
 		zip_file:open_entry(i)
-		if zip_file:get_entry_name() == "defoldsdk/share/proto/resource/liveupdate_ddf.proto" then
+
+		local entry_name = zip_file:get_entry_name()
+		print(entry_name)
+		if entry_name == "example/example.script" then
 			print(zip_file:read_entry())
 		end
+
 		zip_file:close_entry()
 	end
+
 	zip_file:close()
 end
 
