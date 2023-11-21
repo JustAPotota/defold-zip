@@ -1,7 +1,8 @@
 function init(self)
-	local s = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	local reverse_s = myextension.reverse(s)
-	print(reverse_s) --> ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponmlkjihgfedcba
+	local zip_file = zip.open("../test.zip")
+	print(zip_file)
+	print(#zip_file)
+	zip_file:close()
 end
 
 function final(self)
