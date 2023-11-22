@@ -12,5 +12,5 @@ height = 640
 title = defold-zip
 
 [library]
-include_dirs = myextension
+include_dirs = zip
 
